@@ -8,10 +8,8 @@ st.set_page_config(page_title="AI eCommerce Dashboard", layout="wide")
 st.title("AI-Powered eCommerce Optimization Dashboard")
 st.subheader("Fetch live store data and generate AI insights")
 
-# --- Store Type ---
 store_type = st.selectbox("Select Store Platform", ["Shopify", "WooCommerce"])
 
-# --- Credentials Input ---
 if store_type == "Shopify":
     api_key = st.text_input("Shopify API Key")
     password = st.text_input("Shopify Password", type="password")
@@ -21,13 +19,10 @@ elif store_type == "WooCommerce":
     consumer_secret = st.text_input("Consumer Secret", type="password")
     store_url = st.text_input("Store URL (e.g., https://example.com)")
 
-# --- OpenAI Key ---
 openai_api_key = st.text_input("OpenAI API Key (for AI insights)", type="password")
 
-# --- Fetch Data ---
 if st.button("Fetch Store Data"):
     try:
-        # --- Fetch Orders ---
         if store_type == "Shopify":
             url = f"https://{api_key}:{password}@{store_name}/admin/api/2025-01/orders.json?status=any&limit=50"
             response = requests.get(url)
@@ -41,7 +36,6 @@ if st.button("Fetch Store Data"):
 
         st.success("Store data fetched successfully!")
 
-        # --- Check for necessary columns ---
         if 'total_price' in orders_df.columns:
             orders_df['total_price'] = orders_df['total_price'].astype(float)
             revenue_col = 'total_price'
@@ -55,7 +49,6 @@ if st.button("Fetch Store Data"):
         st.subheader("Orders Data Preview")
         st.dataframe(orders_df.head())
 
-        # --- KPIs ---
         total_revenue = orders_df[revenue_col].sum() if revenue_col else 0
         total_orders = len(orders_df)
         st.markdown("### Key Metrics")
@@ -63,9 +56,7 @@ if st.button("Fetch Store Data"):
         col1.metric("Total Revenue ($)", f"{total_revenue}")
         col2.metric("Total Orders", f"{total_orders}")
 
-        # --- Product Analysis ---
         if 'line_items' in orders_df.columns:
-            # Flatten line items
             product_list = []
             for items in orders_df['line_items']:
                 if isinstance(items, list):
@@ -73,12 +64,11 @@ if st.button("Fetch Store Data"):
                         product_list.append({
                             "Product Name": p.get('name', 'N/A'),
                             "Quantity": p.get('quantity', 0),
-                            "Revenue": p.get('price',0) * p.get('quantity',0)
+                            "Revenue": float(p.get('price',0)) * int(p.get('quantity',0))
                         })
             products_df = pd.DataFrame(product_list)
             top_products = products_df.groupby("Product Name").sum().sort_values(by="Revenue", ascending=False).reset_index()
 
-            # --- Charts ---
             st.subheader("Top Products by Revenue")
             fig, ax = plt.subplots(figsize=(8,5))
             ax.bar(top_products["Product Name"], top_products["Revenue"], color='skyblue')
@@ -91,7 +81,6 @@ if st.button("Fetch Store Data"):
             st.subheader("Top Products Table")
             st.dataframe(top_products.head(10))
 
-        # --- Customer Segmentation ---
         if 'customer.email' in orders_df.columns:
             new_customers = orders_df[orders_df['customer.orders_count']==1].shape[0] if 'customer.orders_count' in orders_df.columns else 0
             returning_customers = total_orders - new_customers
@@ -99,16 +88,15 @@ if st.button("Fetch Store Data"):
             st.metric("New Customers", f"{new_customers}")
             st.metric("Returning Customers", f"{returning_customers}")
 
-        # --- AI Insights ---
         if openai_api_key:
             openai.api_key = openai_api_key
-            prompt = f"""
-            You are an eCommerce AI assistant.
-            Analyze this store data and give 5 actionable insights to increase revenue, product sales, and repeat customers.
-            Total Revenue: ${total_revenue}
-            Total Orders: {total_orders}
-            Top Products: {top_products['Product Name'].tolist() if 'top_products' in locals() else []}
-            """
+            prompt = (
+                "You are an eCommerce AI assistant. "
+                "Analyze this store data and give 5 actionable insights to increase revenue, product sales, and repeat customers. "
+                f"Total Revenue: ${total_revenue} "
+                f"Total Orders: {total_orders} "
+                f"Top Products: {top_products['Product Name'].tolist() if 'top_products' in locals() else []}"
+            )
             response_ai = openai.Completion.create(
                 engine="text-davinci-003",
                 prompt=prompt,
