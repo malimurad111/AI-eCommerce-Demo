@@ -1,41 +1,45 @@
-
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
+import requests
 
-# --- Dummy Product Data ---
-products = {
-    "Product Name": ["Smart Watch", "Wireless Earbuds", "Bluetooth Speaker", "Fitness Tracker", "Gaming Mouse"],
-    "Category": ["Wearables", "Audio", "Audio", "Wearables", "Gaming"],
-    "Units Sold": [120, 200, 150, 90, 75],
-    "Revenue (USD)": [6000, 10000, 4500, 2700, 3750],
-    "AI Insight": [
-        "High demand, consider upselling accessories",
-        "Popular item, run targeted email campaigns",
-        "Good seasonal trend, offer bundle deals",
-        "Focus on repeat buyers with discount codes",
-        "Add product tutorial videos to increase conversion"
-    ]
-}
-
-products_df = pd.DataFrame(products)
-
-# --- Dummy Customer Data ---
-customers = {
-    "Segment": ["New Customers", "Returning Customers"],
-    "Number of Customers": [250, 120],
-    "AI Recommendation": [
-        "Offer welcome discounts to increase first purchase",
-        "Target with loyalty programs and repeat offers"
-    ]
-}
-
-customers_df = pd.DataFrame(customers)
-
-# --- Streamlit Layout ---
-st.set_page_config(page_title="AI eCommerce Dashboard", layout="wide")
+st.set_page_config(page_title="AI eCommerce Dashboard (API Demo)", layout="wide")
 st.title("AI-Powered eCommerce Optimization Demo")
 st.subheader("Client Store Analytics & Recommendations")
+
+# --- Fetch Dummy Data from Free API ---
+st.subheader("Fetching Store Data (Free API / Demo)")
+
+@st.cache_data
+def get_demo_data():
+    # Free JSON placeholder simulating store orders
+    response = requests.get("https://fakestoreapi.com/products")  # Free API
+    data = response.json()
+    
+    # Create Products DataFrame
+    products_list = []
+    for item in data[:5]:  # Take 5 products
+        products_list.append({
+            "Product Name": item['title'][:20],  # shorten title
+            "Category": item['category'],
+            "Units Sold": int(item['rating']['count'] / 10),
+            "Revenue (USD)": int(item['price'] * item['rating']['count'] / 10),
+            "AI Insight": "This is a demo AI insight for this product"
+        })
+    products_df = pd.DataFrame(products_list)
+    
+    # Create Customers DataFrame (dummy)
+    customers_df = pd.DataFrame({
+        "Segment": ["New Customers", "Returning Customers"],
+        "Number of Customers": [250, 120],
+        "AI Recommendation": [
+            "Offer welcome discounts to increase first purchase",
+            "Target with loyalty programs and repeat offers"
+        ]
+    })
+    return products_df, customers_df
+
+products_df, customers_df = get_demo_data()
 
 # --- KPI Metrics ---
 total_revenue = products_df["Revenue (USD)"].sum()
@@ -78,4 +82,4 @@ st.subheader("AI Customer Insights")
 st.dataframe(customers_df[["Segment","AI Recommendation"]])
 
 st.markdown("---")
-st.info("This dashboard is a professional demo for eCommerce AI optimization services. Insights are generated using AI suggestions for better business decisions.")
+st.info("This dashboard uses free API data to demo AI eCommerce insights. For real client stores, you can integrate Shopify/WooCommerce API for live analytics.")
