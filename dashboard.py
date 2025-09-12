@@ -1,80 +1,124 @@
 import streamlit as st
 import pandas as pd
+import requests
 import matplotlib.pyplot as plt
+import openai
 
-# --- Dummy Product Data ---
-products = {
-    "Product Name": ["Smart Watch", "Wireless Earbuds", "Bluetooth Speaker", "Fitness Tracker", "Gaming Mouse"],
-    "Category": ["Wearables", "Audio", "Audio", "Wearables", "Gaming"],
-    "Units Sold": [120, 200, 150, 90, 75],
-    "Revenue (USD)": [6000, 10000, 4500, 2700, 3750],
-    "AI Insight": [
-        "High demand, consider upselling accessories",
-        "Popular item, run targeted email campaigns",
-        "Good seasonal trend, offer bundle deals",
-        "Focus on repeat buyers with discount codes",
-        "Add product tutorial videos to increase conversion"
-    ]
-}
-
-products_df = pd.DataFrame(products)
-
-# --- Dummy Customer Data ---
-customers = {
-    "Segment": ["New Customers", "Returning Customers"],
-    "Number of Customers": [250, 120],
-    "AI Recommendation": [
-        "Offer welcome discounts to increase first purchase",
-        "Target with loyalty programs and repeat offers"
-    ]
-}
-
-customers_df = pd.DataFrame(customers)
-
-# --- Streamlit Layout ---
 st.set_page_config(page_title="AI eCommerce Dashboard", layout="wide")
-st.title("AI-Powered eCommerce Optimization Demo")
-st.subheader("Client Store Analytics & Recommendations")
+st.title("AI-Powered eCommerce Optimization Dashboard")
+st.subheader("Fetch live store data and generate AI insights")
 
-# --- KPI Metrics ---
-total_revenue = products_df["Revenue (USD)"].sum()
-total_units = products_df["Units Sold"].sum()
-new_customers = customers_df.loc[customers_df['Segment']=='New Customers', 'Number of Customers'].values[0]
-returning_customers = customers_df.loc[customers_df['Segment']=='Returning Customers', 'Number of Customers'].values[0]
+# --- Store Type ---
+store_type = st.selectbox("Select Store Platform", ["Shopify", "WooCommerce"])
 
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("Total Revenue ($)", f"{total_revenue}")
-col2.metric("Total Units Sold", f"{total_units}")
-col3.metric("New Customers", f"{new_customers}")
-col4.metric("Returning Customers", f"{returning_customers}")
+# --- Credentials Input ---
+if store_type == "Shopify":
+    api_key = st.text_input("Shopify API Key")
+    password = st.text_input("Shopify Password", type="password")
+    store_name = st.text_input("Store Name (e.g., mystore.myshopify.com)")
+elif store_type == "WooCommerce":
+    consumer_key = st.text_input("Consumer Key")
+    consumer_secret = st.text_input("Consumer Secret", type="password")
+    store_url = st.text_input("Store URL (e.g., https://example.com)")
 
-st.markdown("---")
+# --- OpenAI Key ---
+openai_api_key = st.text_input("OpenAI API Key (for AI insights)", type="password")
 
-# --- Product Sales Bar Chart ---
-st.subheader("Top Selling Products")
-fig, ax = plt.subplots()
-ax.bar(products_df["Product Name"], products_df["Units Sold"], color='skyblue')
-ax.set_xlabel("Products")
-ax.set_ylabel("Units Sold")
-ax.set_title("Units Sold per Product")
-st.pyplot(fig)
+# --- Fetch Data ---
+if st.button("Fetch Store Data"):
+    try:
+        # --- Fetch Orders ---
+        if store_type == "Shopify":
+            url = f"https://{api_key}:{password}@{store_name}/admin/api/2025-01/orders.json?status=any&limit=50"
+            response = requests.get(url)
+            orders = response.json().get('orders', [])
+            orders_df = pd.json_normalize(orders)
+        elif store_type == "WooCommerce":
+            url = f"{store_url}/wp-json/wc/v3/orders?per_page=50"
+            response = requests.get(url, auth=(consumer_key, consumer_secret))
+            orders = response.json()
+            orders_df = pd.json_normalize(orders)
 
-# --- Product Revenue Pie Chart ---
-st.subheader("Revenue Distribution")
-fig2, ax2 = plt.subplots()
-ax2.pie(products_df["Revenue (USD)"], labels=products_df["Product Name"], autopct='%1.1f%%', startangle=90)
-ax2.set_title("Revenue Share by Product")
-st.pyplot(fig2)
+        st.success("Store data fetched successfully!")
 
-st.markdown("---")
+        # --- Check for necessary columns ---
+        if 'total_price' in orders_df.columns:
+            orders_df['total_price'] = orders_df['total_price'].astype(float)
+            revenue_col = 'total_price'
+        elif 'total' in orders_df.columns:
+            orders_df['total'] = orders_df['total'].astype(float)
+            revenue_col = 'total'
+        else:
+            st.warning("No revenue column found in orders data")
+            revenue_col = None
 
-# --- Product Insights Table ---
-st.subheader("AI Product Insights")
-st.dataframe(products_df[["Product Name","AI Insight"]])
+        st.subheader("Orders Data Preview")
+        st.dataframe(orders_df.head())
 
-# --- Customer Insights Table ---
-st.subheader("AI Customer Insights")
-st.dataframe(customers_df[["Segment","AI Recommendation"]])
+        # --- KPIs ---
+        total_revenue = orders_df[revenue_col].sum() if revenue_col else 0
+        total_orders = len(orders_df)
+        st.markdown("### Key Metrics")
+        col1, col2 = st.columns(2)
+        col1.metric("Total Revenue ($)", f"{total_revenue}")
+        col2.metric("Total Orders", f"{total_orders}")
 
-st.markdown("---")
-st.info("This dashboard is a professional demo for eCommerce AI optimization services. Insights are generated using AI suggestions for better business decisions.")
+        # --- Product Analysis ---
+        if 'line_items' in orders_df.columns:
+            # Flatten line items
+            product_list = []
+            for items in orders_df['line_items']:
+                if isinstance(items, list):
+                    for p in items:
+                        product_list.append({
+                            "Product Name": p.get('name', 'N/A'),
+                            "Quantity": p.get('quantity', 0),
+                            "Revenue": p.get('price',0) * p.get('quantity',0)
+                        })
+            products_df = pd.DataFrame(product_list)
+            top_products = products_df.groupby("Product Name").sum().sort_values(by="Revenue", ascending=False).reset_index()
+
+            # --- Charts ---
+            st.subheader("Top Products by Revenue")
+            fig, ax = plt.subplots(figsize=(8,5))
+            ax.bar(top_products["Product Name"], top_products["Revenue"], color='skyblue')
+            ax.set_xlabel("Products")
+            ax.set_ylabel("Revenue ($)")
+            ax.set_title("Top Products by Revenue")
+            plt.xticks(rotation=45, ha='right')
+            st.pyplot(fig)
+
+            st.subheader("Top Products Table")
+            st.dataframe(top_products.head(10))
+
+        # --- Customer Segmentation ---
+        if 'customer.email' in orders_df.columns:
+            new_customers = orders_df[orders_df['customer.orders_count']==1].shape[0] if 'customer.orders_count' in orders_df.columns else 0
+            returning_customers = total_orders - new_customers
+            st.subheader("Customer Segmentation")
+            st.metric("New Customers", f"{new_customers}")
+            st.metric("Returning Customers", f"{returning_customers}")
+
+        # --- AI Insights ---
+        if openai_api_key:
+            openai.api_key = openai_api_key
+            prompt = f"""
+            You are an eCommerce AI assistant.
+            Analyze this store data and give 5 actionable insights to increase revenue, product sales, and repeat customers.
+            Total Revenue: ${total_revenue}
+            Total Orders: {total_orders}
+            Top Products: {top_products['Product Name'].tolist() if 'top_products' in locals() else []}
+            """
+            response_ai = openai.Completion.create(
+                engine="text-davinci-003",
+                prompt=prompt,
+                max_tokens=300
+            )
+            insights = response_ai['choices'][0]['text']
+            st.subheader("AI-Generated Insights")
+            st.write(insights)
+        else:
+            st.info("Enter OpenAI API Key to generate AI insights.")
+
+    except Exception as e:
+        st.error(f"Error fetching data: {e}")
