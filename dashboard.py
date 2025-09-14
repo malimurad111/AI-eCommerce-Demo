@@ -28,6 +28,10 @@ total_units = products_df["Units Sold"].sum()
 new_customers = int(customers_df.loc[customers_df['Segment']=='New Customers', 'Number of Customers'])
 returning_customers = int(customers_df.loc[customers_df['Segment']=='Returning Customers', 'Number of Customers'])
 
+# Define missing vars
+total_orders = total_units   # assume each unit = 1 order (dummy logic, update with real Shopify data later)
+total_customers = new_customers + returning_customers
+
 # --- Streamlit Layout ---
 st.set_page_config(page_title="AI eCommerce Dashboard", layout="wide")
 st.title("📊 AI-Powered eCommerce Dashboard (Shopify + Gemini)")
@@ -61,10 +65,11 @@ Store KPIs:
 - Orders: {total_orders}
 - Customers: {total_customers}
 
-Top 3 Products: {dict(list(product_sales.items())[:3])}
+Top 3 Products: {products_df[['Product Name', 'Units Sold']].head(3).to_dict(orient='records')}
 
 Give 2 insights and 1 action recommendation.
 """
+
 
 
 if st.button("Generate AI Insights"):
