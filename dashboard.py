@@ -25,8 +25,8 @@ customers_df = pd.DataFrame(customers)
 # --- KPIs ---
 total_revenue = products_df["Revenue (USD)"].sum()
 total_units = products_df["Units Sold"].sum()
-new_customers = int(customers_df.loc[customers_df['Segment']=='New Customers', 'Number of Customers'])
-returning_customers = int(customers_df.loc[customers_df['Segment']=='Returning Customers', 'Number of Customers'])
+new_customers = int(customers_df.loc[customers_df['Segment'] == 'New Customers', 'Number of Customers'].iloc[0]) if not customers_df.loc[customers_df['Segment'] == 'New Customers'].empty else 0
+returning_customers = int(customers_df.loc[customers_df['Segment'] == 'Returning Customers', 'Number of Customers'].iloc[0]) if not customers_df.loc[customers_df['Segment'] == 'Returning Customers'].empty else 0
 total_customers = new_customers + returning_customers
 total_orders = total_units  # dummy assumption
 
