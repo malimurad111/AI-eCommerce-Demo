@@ -3,6 +3,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import google.generativeai as genai
 import os
+import random
 
 # --- Configure Gemini API ---
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
@@ -25,12 +26,11 @@ customers_df = pd.DataFrame(customers)
 # --- KPIs ---
 total_revenue = products_df["Revenue (USD)"].sum()
 total_units = products_df["Units Sold"].sum()
-new_customers = int(customers_df.loc[customers_df['Segment']=='New Customers', 'Number of Customers'])
-returning_customers = int(customers_df.loc[customers_df['Segment']=='Returning Customers', 'Number of Customers'])
-
-# Define missing vars
-total_orders = total_units   # assume each unit = 1 order (dummy logic, update with real Shopify data later)
-total_customers = new_customers + returning_customers
+total_orders = total_units  # assume each unit = 1 order for now
+total_customers = customers_df["Number of Customers"].sum()
+new_customers = int(customers_df.loc[customers_df['Segment']=="New Customers", "Number of Customers"])
+returning_customers = int(customers_df.loc[customers_df['Segment']=="Returning Customers", "Number of Customers"])
+product_sales = dict(zip(products_df["Product Name"], products_df["Units Sold"]))
 
 # --- Streamlit Layout ---
 st.set_page_config(page_title="AI eCommerce Dashboard", layout="wide")
@@ -47,11 +47,13 @@ st.markdown("---")
 # --- Top Selling Products Chart ---
 st.subheader("Top Selling Products")
 fig, ax = plt.subplots(figsize=(8, 5))
-ax.bar(products_df["Product Name"], products_df["Units Sold"], color='skyblue')
+ax.bar(products_df["Product Name"], products_df["Units Sold"], color="skyblue")
 ax.set_xlabel("Products")
 ax.set_ylabel("Units Sold")
 ax.set_title("Units Sold per Product")
 plt.xticks(rotation=30, ha="right")
+for i, v in enumerate(products_df["Units Sold"]):
+    ax.text(i, v + 3, str(v), ha="center", fontsize=9)  # label on top of bars
 st.pyplot(fig)
 
 st.markdown("---")
@@ -65,25 +67,35 @@ Store KPIs:
 - Orders: {total_orders}
 - Customers: {total_customers}
 
-Top 3 Products: {products_df[['Product Name', 'Units Sold']].head(3).to_dict(orient='records')}
+Top 3 Products: {dict(list(product_sales.items())[:3])}
 
-Give 2 insights and 1 action recommendation.
+Give 2 insights and 1 action recommendation in short bullet points.
 """
 
-
+fallback_insights = [
+    "- Bundle discounts on top-selling products.",
+    "- Run retargeting ads for returning customers.",
+    "- Launch a limited-time sale to boost revenue.",
+    "- Improve product descriptions for top 3 items.",
+    "- Offer loyalty rewards to repeat buyers.",
+    "- Cross-sell accessories with popular items.",
+]
 
 if st.button("Generate AI Insights"):
     with st.spinner("⚡ Generating insights with Gemini..."):
         try:
-            stream = model.generate_content(prompt, stream=True, request_options={"timeout": 20})
+            stream = model.generate_content(
+                prompt,
+                stream=True,
+                request_options={"timeout": 60}  # increased timeout
+            )
             response_text = ""
             for chunk in stream:
                 if chunk.text:
                     response_text += chunk.text
-                    st.markdown(response_text)  # Live update while streaming
+                    st.markdown(response_text)  # live update
             st.success("✅ Insights Generated")
         except Exception as e:
             st.warning("Gemini slow hai, showing default insights:")
-            st.write("- Focus on your best selling product.")
-            st.write("- Improve returning customer offers.")
-
+            st.write(random.choice(fallback_insights))
+            st.write(random.choice(fallback_insights))
