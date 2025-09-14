@@ -1,91 +1,80 @@
 import streamlit as st
+import pandas as pd
 import matplotlib.pyplot as plt
 import google.generativeai as genai
 import os
 
-# ----------------------------
-# Gemini API Configuration
-# ----------------------------
+# --- Configure Gemini API ---
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel("gemini-1.5-flash-latest")
+model = genai.GenerativeModel("gemini-1.5-flash")
 
-# ----------------------------
-# Dashboard Title
-# ----------------------------
-st.set_page_config(page_title="AI-Powered eCommerce Dashboard", layout="wide")
+# --- Dummy Data (replace with Shopify API later) ---
+products = {
+    "Product Name": ["Smart Watch", "Wireless Earbuds", "Bluetooth Speaker", "Fitness Tracker", "Gaming Mouse"],
+    "Units Sold": [120, 200, 150, 90, 75],
+    "Revenue (USD)": [6000, 10000, 4500, 2700, 3750],
+}
+products_df = pd.DataFrame(products)
+
+customers = {
+    "Segment": ["New Customers", "Returning Customers"],
+    "Number of Customers": [250, 120],
+}
+customers_df = pd.DataFrame(customers)
+
+# --- KPIs ---
+total_revenue = products_df["Revenue (USD)"].sum()
+total_units = products_df["Units Sold"].sum()
+new_customers = int(customers_df.loc[customers_df['Segment']=='New Customers', 'Number of Customers'])
+returning_customers = int(customers_df.loc[customers_df['Segment']=='Returning Customers', 'Number of Customers'])
+
+# --- Streamlit Layout ---
+st.set_page_config(page_title="AI eCommerce Dashboard", layout="wide")
 st.title("📊 AI-Powered eCommerce Dashboard (Shopify + Gemini)")
 
-# ----------------------------
-# Sample Data (replace with Shopify API later)
-# ----------------------------
-products = ["Shoes", "T-Shirts", "Jeans", "Hoodies", "Jackets"]
-sales = [120, 90, 75, 60, 40]
-customers = 230
-orders = 180
-revenue = 15250.75
-
-# ----------------------------
-# KPIs
-# ----------------------------
 col1, col2, col3, col4 = st.columns(4)
-col1.metric("🛍️ Products", len(products))
-col2.metric("👥 Customers", customers)
-col3.metric("📦 Orders", orders)
-col4.metric("💰 Revenue", f"${revenue:,.2f}")
+col1.metric("💰 Revenue", f"${total_revenue:,.2f}")
+col2.metric("📦 Units Sold", f"{total_units}")
+col3.metric("🆕 New Customers", f"{new_customers}")
+col4.metric("👥 Returning Customers", f"{returning_customers}")
 
 st.markdown("---")
 
-# ----------------------------
-# Top Selling Products (Bar Chart)
-# ----------------------------
-st.subheader("📈 Top Selling Products")
+# --- Top Selling Products Chart ---
+st.subheader("Top Selling Products")
 fig, ax = plt.subplots(figsize=(8, 5))
-bars = ax.bar(products, sales, color="skyblue", edgecolor="black")
-
-# Labels above bars
-for bar in bars:
-    ax.text(
-        bar.get_x() + bar.get_width() / 2,
-        bar.get_height() + 2,
-        str(bar.get_height()),
-        ha="center",
-        fontsize=10,
-        fontweight="bold"
-    )
-
+ax.bar(products_df["Product Name"], products_df["Units Sold"], color='skyblue')
 ax.set_xlabel("Products")
-ax.set_ylabel("Sales")
-ax.set_title("Top Selling Products")
-plt.tight_layout()
+ax.set_ylabel("Units Sold")
+ax.set_title("Units Sold per Product")
+plt.xticks(rotation=30, ha="right")
 st.pyplot(fig)
 
 st.markdown("---")
 
-# ----------------------------
-# AI Insights Section
-# ----------------------------
+# --- AI Insights with Streaming ---
 st.subheader("🤖 Gemini AI Insights")
 
 prompt = f"""
-Analyze the eCommerce store performance.
+Store Performance:
+- Total Revenue: ${total_revenue}
+- Total Units Sold: {total_units}
+- New Customers: {new_customers}
+- Returning Customers: {returning_customers}
+Top Products: {dict(zip(products_df['Product Name'], products_df['Units Sold']))}
 
-Products: {", ".join(products)}
-Sales: {", ".join(map(str, sales))}
-Customers: {customers}
-Orders: {orders}
-Revenue: ${revenue}
-
-Give 3 short insights and 2 actionable suggestions to improve sales.
+Give 3 business insights + 2 action recommendations.
 """
 
 if st.button("Generate AI Insights"):
-    with st.spinner("Generating insights with Gemini..."):
+    with st.spinner("⚡ Generating insights with Gemini..."):
         try:
-            response = model.generate_content(prompt)
-            if response and hasattr(response, "text"):
-                st.success("✅ Insights Generated Successfully")
-                st.write(response.text)
-            else:
-                st.warning("⚠️ No response received from Gemini API.")
+            stream = model.generate_content(prompt, stream=True)
+            response_text = ""
+            for chunk in stream:
+                if chunk.text:
+                    response_text += chunk.text
+                    st.markdown(response_text)  # Live update while streaming
+            st.success("✅ Insights Generated")
         except Exception as e:
             st.error(f"Gemini API Error: {str(e)}")
