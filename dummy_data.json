@@ -1,0 +1,76 @@
+{
+    "products": [
+        {
+            "id": 101,
+            "title": "Smart Watch",
+            "category": "Wearables",
+            "price": 50,
+            "units_sold": 120,
+            "revenue": 6000
+        },
+        {
+            "id": 102,
+            "title": "Wireless Earbuds",
+            "category": "Audio",
+            "price": 50,
+            "units_sold": 200,
+            "revenue": 10000
+        },
+        {
+            "id": 103,
+            "title": "Bluetooth Speaker",
+            "category": "Audio",
+            "price": 30,
+            "units_sold": 150,
+            "revenue": 4500
+        },
+        {
+            "id": 104,
+            "title": "Fitness Tracker",
+            "category": "Wearables",
+            "price": 30,
+            "units_sold": 90,
+            "revenue": 2700
+        },
+        {
+            "id": 105,
+            "title": "Gaming Mouse",
+            "category": "Gaming",
+            "price": 50,
+            "units_sold": 75,
+            "revenue": 3750
+        }
+    ],
+    "customers": {
+        "new_customers": 250,
+        "returning_customers": 120
+    },
+    "orders": [
+        {
+            "id": 1001,
+            "customer": "Ali",
+            "product": "Smart Watch",
+            "amount": 50,
+            "status": "Paid"
+        },
+        {
+            "id": 1002,
+            "customer": "Sara",
+            "product": "Wireless Earbuds",
+            "amount": 50,
+            "status": "Paid"
+        },
+        {
+            "id": 1003,
+            "customer": "Ahmed",
+            "product": "Gaming Mouse",
+            "amount": 50,
+            "status": "Pending"
+        }
+    ],
+    "revenue_summary": {
+        "total_orders": 3,
+        "total_revenue": 23950,
+        "currency": "USD"
+    }
+}
