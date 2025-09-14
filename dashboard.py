@@ -70,7 +70,7 @@ Give 2 insights and 1 action recommendation.
 if st.button("Generate AI Insights"):
     with st.spinner("⚡ Generating insights with Gemini..."):
         try:
-            stream = model.generate_content(prompt, stream=True, request_options={"timeout": 20}  # 20 seconds max)
+            stream = model.generate_content(prompt, stream=True, request_options={"timeout": 20})
             response_text = ""
             for chunk in stream:
                 if chunk.text:
