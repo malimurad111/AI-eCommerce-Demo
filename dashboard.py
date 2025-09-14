@@ -1,72 +1,91 @@
 import streamlit as st
 import matplotlib.pyplot as plt
 import google.generativeai as genai
+import os
 
-# ======================
-# 🔑 Gemini API Setup
-# ======================
-genai.configure(api_key="YOUR_GEMINI_API_KEY")
+# ----------------------------
+# Gemini API Configuration
+# ----------------------------
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
+model = genai.GenerativeModel("gemini-1.5-flash-latest")
 
-# ======================
-# 📊 Mock Shopify Data (replace with real API calls)
-# ======================
-products = ["Shirt", "Shoes", "Bag", "Watch", "Cap"]
-sales = [230, 180, 150, 90, 60]
-
-customers = 120
-orders = 85
-revenue = 4500.75
-
-# ======================
-# 📊 Streamlit Layout
-# ======================
+# ----------------------------
+# Dashboard Title
+# ----------------------------
 st.set_page_config(page_title="AI-Powered eCommerce Dashboard", layout="wide")
 st.title("📊 AI-Powered eCommerce Dashboard (Shopify + Gemini)")
 
-# ======================
-# 🔹 KPIs
-# ======================
+# ----------------------------
+# Sample Data (replace with Shopify API later)
+# ----------------------------
+products = ["Shoes", "T-Shirts", "Jeans", "Hoodies", "Jackets"]
+sales = [120, 90, 75, 60, 40]
+customers = 230
+orders = 180
+revenue = 15250.75
+
+# ----------------------------
+# KPIs
+# ----------------------------
 col1, col2, col3, col4 = st.columns(4)
 col1.metric("🛍️ Products", len(products))
 col2.metric("👥 Customers", customers)
 col3.metric("📦 Orders", orders)
 col4.metric("💰 Revenue", f"${revenue:,.2f}")
 
-# ======================
-# 🔹 Top Selling Products Chart
-# ======================
-def plot_top_selling_products(products, sales):
-    fig, ax = plt.subplots(figsize=(8, 5))
-    ax.barh(products, sales, color="skyblue")
-    ax.set_xlabel("Units Sold")
-    ax.set_ylabel("Products")
-    ax.set_title("Top Selling Products")
-    ax.invert_yaxis()  # Highest selling product upar aayega
-    plt.tight_layout()
-    return fig
+st.markdown("---")
 
+# ----------------------------
+# Top Selling Products (Bar Chart)
+# ----------------------------
 st.subheader("📈 Top Selling Products")
-fig = plot_top_selling_products(products, sales)
+fig, ax = plt.subplots(figsize=(8, 5))
+bars = ax.bar(products, sales, color="skyblue", edgecolor="black")
+
+# Labels above bars
+for bar in bars:
+    ax.text(
+        bar.get_x() + bar.get_width() / 2,
+        bar.get_height() + 2,
+        str(bar.get_height()),
+        ha="center",
+        fontsize=10,
+        fontweight="bold"
+    )
+
+ax.set_xlabel("Products")
+ax.set_ylabel("Sales")
+ax.set_title("Top Selling Products")
+plt.tight_layout()
 st.pyplot(fig)
 
-# ======================
-# 🔹 Gemini AI Insights
-# ======================
-st.subheader("🤖 AI Insights")
+st.markdown("---")
+
+# ----------------------------
+# AI Insights Section
+# ----------------------------
+st.subheader("🤖 Gemini AI Insights")
 
 prompt = f"""
-You are an AI eCommerce analyst. 
-Here is the store data:
-- Products: {products}
-- Sales: {sales}
-- Customers: {customers}
-- Orders: {orders}
-- Revenue: ${revenue}
+Analyze the eCommerce store performance.
 
-Give a short, clear insight about store performance and improvement tips.
+Products: {", ".join(products)}
+Sales: {", ".join(map(str, sales))}
+Customers: {customers}
+Orders: {orders}
+Revenue: ${revenue}
+
+Give 3 short insights and 2 actionable suggestions to improve sales.
 """
 
 if st.button("Generate AI Insights"):
-    model = genai.GenerativeModel("gemini-1.5-flash")
-    response = model.generate_content(prompt)
-    st.success(response.text)
+    with st.spinner("Generating insights with Gemini..."):
+        try:
+            response = model.generate_content(prompt)
+            if response and hasattr(response, "text"):
+                st.success("✅ Insights Generated Successfully")
+                st.write(response.text)
+            else:
+                st.warning("⚠️ No response received from Gemini API.")
+        except Exception as e:
+            st.error(f"Gemini API Error: {str(e)}")
