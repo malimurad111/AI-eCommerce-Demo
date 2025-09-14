@@ -56,20 +56,21 @@ st.markdown("---")
 st.subheader("🤖 Gemini AI Insights")
 
 prompt = f"""
-Store Performance:
-- Total Revenue: ${total_revenue}
-- Total Units Sold: {total_units}
-- New Customers: {new_customers}
-- Returning Customers: {returning_customers}
-Top Products: {dict(zip(products_df['Product Name'], products_df['Units Sold']))}
+Store KPIs:
+- Revenue: ${total_revenue}
+- Orders: {total_orders}
+- Customers: {total_customers}
 
-Give 3 business insights + 2 action recommendations.
+Top 3 Products: {dict(list(product_sales.items())[:3])}
+
+Give 2 insights and 1 action recommendation.
 """
+
 
 if st.button("Generate AI Insights"):
     with st.spinner("⚡ Generating insights with Gemini..."):
         try:
-            stream = model.generate_content(prompt, stream=True)
+            stream = model.generate_content(prompt, tream=True, request_options={"timeout": 20}  # 20 seconds max)
             response_text = ""
             for chunk in stream:
                 if chunk.text:
