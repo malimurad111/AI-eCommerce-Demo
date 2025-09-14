@@ -78,4 +78,7 @@ if st.button("Generate AI Insights"):
                     st.markdown(response_text)  # Live update while streaming
             st.success("✅ Insights Generated")
         except Exception as e:
-            st.error(f"Gemini API Error: {str(e)}")
+            st.warning("Gemini slow hai, showing default insights:")
+            st.write("- Focus on your best selling product.")
+            st.write("- Improve returning customer offers.")
+
