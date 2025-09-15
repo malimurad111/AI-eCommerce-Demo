@@ -1,97 +1,96 @@
-import streamlit as st
+import os
 import pandas as pd
+import numpy as np
+import streamlit as st
 import plotly.express as px
-import google.generativeai as genai
+from datetime import datetime, timedelta
 
-# ============ Load Data ============
+# ---------------------------
+# Step 1: Ensure data folder + dummy CSVs
+# ---------------------------
+DATA_DIR = "data"
+if not os.path.exists(DATA_DIR):
+    os.makedirs(DATA_DIR)
+
+# Dummy Revenue Data
+revenue_file = os.path.join(DATA_DIR, "revenue.csv")
+if not os.path.exists(revenue_file):
+    dates = pd.date_range(datetime.today() - timedelta(days=30), periods=30).date
+    revenue = np.random.randint(500, 3000, size=30)
+    pd.DataFrame({"date": dates, "revenue": revenue}).to_csv(revenue_file, index=False)
+
+# Dummy Customers Data
+customers_file = os.path.join(DATA_DIR, "customers.csv")
+if not os.path.exists(customers_file):
+    pd.DataFrame({
+        "Segment": ["New Customers", "Returning Customers"],
+        "Number of Customers": [250, 120]
+    }).to_csv(customers_file, index=False)
+
+# Dummy Products Data
+products_file = os.path.join(DATA_DIR, "products.csv")
+if not os.path.exists(products_file):
+    pd.DataFrame({
+        "Product": ["Smart Watch", "Wireless Earbuds", "Bluetooth Speaker", "Gaming Mouse"],
+        "Category": ["Wearables", "Audio", "Audio", "Gaming"],
+        "Price": [120, 80, 60, 40],
+        "Units Sold": [150, 200, 100, 75],
+        "Revenue": [18000, 16000, 6000, 3000]
+    }).to_csv(products_file, index=False)
+
+# ---------------------------
+# Step 2: Load Data
+# ---------------------------
 @st.cache_data
 def load_data():
-    revenue_df = pd.read_csv("data/revenue.csv")
-    customers_df = pd.read_csv("data/customers.csv")
-    products_df = pd.read_csv("data/products.csv")
+    revenue_df = pd.read_csv(revenue_file)
+    customers_df = pd.read_csv(customers_file)
+    products_df = pd.read_csv(products_file)
     return revenue_df, customers_df, products_df
 
 revenue_df, customers_df, products_df = load_data()
 
-# ============ Metrics ============
-total_revenue = revenue_df["Revenue"].sum()
-total_orders = revenue_df["Orders"].sum()
-
-# Fix for FutureWarning (iloc instead of int(series))
-try:
-    new_customers = int(customers_df.loc[customers_df['Segment'] == 'New Customers', 'Number of Customers'].iloc[0])
-except IndexError:
-    new_customers = 0
-
-try:
-    returning_customers = int(customers_df.loc[customers_df['Segment'] == 'Returning Customers', 'Number of Customers'].iloc[0])
-except IndexError:
-    returning_customers = 0
-
-# ============ Merge Data ============
-merged = pd.merge(products_df, revenue_df, how="left", on="Product ID")
-
-# Handle missing / inconsistent column names
-if "Units Sold" in merged.columns:
-    merged.rename(columns={"Units Sold": "units_sold"}, inplace=True)
-
-if "units_sold" not in merged.columns:
-    merged["units_sold"] = 0  # default column if missing
-
-merged["units_sold"] = merged["units_sold"].fillna(0).astype(int)
-
-# ============ Streamlit Dashboard ============
+# ---------------------------
+# Step 3: Dashboard Layout
+# ---------------------------
 st.set_page_config(page_title="AI eCommerce Dashboard", layout="wide")
 
-st.title("📊 AI-Powered eCommerce Dashboard (Shopify + Gemini)")
+st.title("📊 AI-Powered eCommerce Dashboard")
 
-col1, col2, col3, col4 = st.columns(4)
-col1.metric("💰 Revenue", f"${total_revenue:,.2f}")
-col2.metric("📦 Units Sold", merged["units_sold"].sum())
-col3.metric("🆕 New Customers", new_customers)
-col4.metric("👥 Returning Customers", returning_customers)
+# KPIs
+total_revenue = revenue_df["revenue"].sum()
+new_customers = int(customers_df.loc[customers_df["Segment"] == "New Customers", "Number of Customers"].iloc[0])
+returning_customers = int(customers_df.loc[customers_df["Segment"] == "Returning Customers", "Number of Customers"].iloc[0])
+total_units = products_df["Units Sold"].sum()
 
-# ============ Top Selling Products ============
-st.subheader("🏆 Top Selling Products")
-top_products = merged.groupby("Product Name")["units_sold"].sum().sort_values(ascending=False).head(10).reset_index()
+kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+kpi1.metric("💰 Total Revenue", f"${total_revenue:,.0f}")
+kpi2.metric("🆕 New Customers", new_customers)
+kpi3.metric("🔁 Returning Customers", returning_customers)
+kpi4.metric("📦 Units Sold", total_units)
 
-fig = px.bar(
-    top_products,
-    x="Product Name",
-    y="units_sold",
-    text="units_sold",
-    title="Top 10 Products",
-)
-fig.update_traces(texttemplate="%{text}", textposition="outside")
-fig.update_layout(xaxis_tickangle=-40, height=500)
-st.plotly_chart(fig, use_container_width=True)
+st.markdown("---")
 
-# ============ Gemini AI Insights ============
-st.subheader("🤖 Gemini AI Insights")
+# Revenue Trend
+st.subheader("📈 Revenue Over Time")
+fig1 = px.line(revenue_df, x="date", y="revenue", markers=True, title="Daily Revenue")
+st.plotly_chart(fig1, use_container_width=True)
 
-prompt = f"""
-Ecommerce Analytics Report:
-- Revenue: {total_revenue}
-- Orders: {total_orders}
-- New Customers: {new_customers}
-- Returning Customers: {returning_customers}
-- Top Products: {top_products.to_dict(orient='records')}
-Provide 3 actionable business insights.
-"""
+# Products Performance
+st.subheader("🏆 Top Products")
+fig2 = px.bar(products_df, x="Product", y="Units Sold", color="Category", text="Units Sold")
+st.plotly_chart(fig2, use_container_width=True)
 
-try:
-    genai.configure(api_key="YOUR_API_KEY")
-    model = genai.GenerativeModel("gemini-1.5-flash")
+# Customers
+st.subheader("👥 Customer Breakdown")
+fig3 = px.pie(customers_df, names="Segment", values="Number of Customers", title="Customer Segments")
+st.plotly_chart(fig3, use_container_width=True)
 
-    response = model.generate_content(prompt, request_options={"timeout": 20})
-    ai_insights = response.text if response else "No response from Gemini."
-except Exception as e:
-    ai_insights = """
-Gemini slow hai, showing default insights:
-
-1. Focus on your best selling product.
-2. Improve returning customer offers.
-3. Bundle discounts on top-selling products.
-"""
-
-st.info(ai_insights)
+# ---------------------------
+# Step 4: AI Insights (Fallback)
+# ---------------------------
+st.markdown("## 🤖 AI Insights")
+st.info("Gemini slow hai, showing default insights:")
+st.write("- Focus on your best selling product.")
+st.write("- Offer bundle discounts on top-selling items.")
+st.write("- Improve offers for returning customers.")
